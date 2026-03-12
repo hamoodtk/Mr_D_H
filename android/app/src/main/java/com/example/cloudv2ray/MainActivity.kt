@@ -1,8 +1,12 @@
 package com.example.cloudv2ray
 
+import android.content.Intent
+import android.net.VpnService
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
@@ -18,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,9 +42,18 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun VpnApp() {
-    var isConnected by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val isConnected = V2RayManager.isConnected
     var timeSeconds by remember { mutableStateOf(0) }
     
+    val vpnPrepareLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == ComponentActivity.RESULT_OK) {
+            V2RayManager.toggleConnection(context, "vless://example-config")
+        }
+    }
+
     LaunchedEffect(isConnected) {
         if (isConnected) {
             while (true) {
@@ -67,7 +81,14 @@ fun VpnApp() {
             TimerSection(timeSeconds)
             SpeedMetrics()
             ServerCards()
-            PowerButton(isConnected) { isConnected = !isConnected }
+            PowerButton(isConnected) { 
+                val intent = VpnService.prepare(context)
+                if (intent != null) {
+                    vpnPrepareLauncher.launch(intent)
+                } else {
+                    V2RayManager.toggleConnection(context, "vless://example-config")
+                }
+            }
             ExpirationDetails()
         }
     }
